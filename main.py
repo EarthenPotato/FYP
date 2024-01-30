@@ -3,11 +3,11 @@ import cv2
 import torch
 from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms
-import torch.nn as nn
 import torch.optim as optim
 import torchvision.models as models
 from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
 from torch.utils.data._utils.collate import default_collate
+from PIL import Image
 
 class PCBDataSet(Dataset):
     def __init__(self, root_dir, annotation_folders, image_folders, transform=None):
@@ -59,20 +59,18 @@ class PCBDataSet(Dataset):
         entry = self.data[file_id]
         annotations = entry['annotations']
 
-        # Check if 'test' image is available for the file_id
-        if 'test' not in entry['images']:
-            # Handle the missing 'test' image case here
-            # For example, you can skip this item, log an error, or use a default image
-            print(f"'test' image not found for file_id: {file_id}")
-            return None, None  # Modify as needed for your specific handling
-
         image_path = entry['images']['test']
+        
+        # Load the image with OpenCV
         image = cv2.imread(image_path, cv2.IMREAD_COLOR)
-        image = cv2.resize(image, (640, 640))
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)  # Convert from BGR to RGB
 
+        # Convert the image from a NumPy array to a PIL image
+        image = Image.fromarray(image)
+
+        # Apply the transformations
         if self.transform:
-            image = self.transform(image)
+            image = self.transform(image)  
 
         # Process annotations
         boxes = []
@@ -109,7 +107,7 @@ class PCBDataSet(Dataset):
                     'annotations': self.annotations[file_id],
                     'images': self.images[file_id]
                 }
-        print(data)
+        # print(data)
         return data
 
 def collate_fn(batch):
@@ -139,8 +137,8 @@ image_folders = [os.path.join(group, group.split('group')[-1]) for group in grou
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 transform = transforms.Compose([
-    transforms.ToPILImage(),
-    transforms.ToTensor(),
+    transforms.ToPILImage(),   # If your images are not PIL Images
+    transforms.ToTensor(),     # Converts to Torch Tensor and scales to [0, 1]
     transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
 ])
 
