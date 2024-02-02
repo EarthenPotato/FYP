@@ -8,6 +8,7 @@ import torchvision.models as models
 from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
 from torch.utils.data._utils.collate import default_collate
 from PIL import Image
+import numpy as np 
 
 class PCBDataSet(Dataset):
     def __init__(self, root_dir, annotation_folders, image_folders, transform=None):
@@ -62,15 +63,20 @@ class PCBDataSet(Dataset):
         image_path = entry['images']['test']
         
         # Load the image with OpenCV
-        image = cv2.imread(image_path, cv2.IMREAD_COLOR)
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)  # Convert from BGR to RGB
+        image = cv2.imread(image_path)
+        if image is None:
+            raise RuntimeError(f"Failed to read image: {image_path}")
 
-        # Convert the image from a NumPy array to a PIL image
-        image = Image.fromarray(image)
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        image = cv2.resize(image, (640, 640))
 
         # Apply the transformations
         if self.transform:
-            image = self.transform(image)  
+            image = self.transform(image)
+            # print(image)
+
+        # if not isinstance(image, torch.Tensor):
+        #     raise TypeError("Image is not a tensor.")
 
         # Process annotations
         boxes = []
@@ -137,12 +143,11 @@ image_folders = [os.path.join(group, group.split('group')[-1]) for group in grou
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 transform = transforms.Compose([
-    transforms.ToPILImage(),   # If your images are not PIL Images
     transforms.ToTensor(),     # Converts to Torch Tensor and scales to [0, 1]
     transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
 ])
 
-pcb_dataset = PCBDataSet(root_dir, annotation_folders, image_folders)
+pcb_dataset = PCBDataSet(root_dir, annotation_folders, image_folders, transform=transform)
 data_loader = DataLoader(pcb_dataset, batch_size=4, shuffle=True, collate_fn=collate_fn)
 
 
